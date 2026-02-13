@@ -33,9 +33,10 @@ local.properties
 .cxx/
 
 # node.js
-#
 node_modules/
 npm-debug.log
+yarn-error.log
+types/lib.es5.d.ts
 
 # BUCK
 buck-out/
