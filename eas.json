@@ -19,10 +19,15 @@
             }
         },
         "development": {
+            "developmentClient": true,
+            "distribution": "internal",
             "env": {
                 "EXPO_IMAGE_UTILS_CACHE_DIR": "/tmp/expo-image-cache",
                 "EXPO_WEB_CACHE_DIR": "/tmp/expo-web-cache",
                 "EXPO_HOME": "/tmp/expo"
+            },
+            "android": {
+                "buildType": "apk"
             }
         },
         "production": {

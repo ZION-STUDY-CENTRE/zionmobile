@@ -72,11 +72,13 @@ async function registerForPushNotificationsAsync() {
             projectId,
         });
         token = pushTokenData.data;
+        console.log("Expo Push Token:", token);
     } catch (e: any) {
         console.error("Error fetching push token:", e);
+        alert(`Error fetching push token: ${e.message}`);
     }
   } else {
-    // console.log('Must use physical device for Push Notifications');
+    alert('Must use physical device for Push Notifications');
   }
   return token;
 }
