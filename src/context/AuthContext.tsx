@@ -1,6 +1,21 @@
-import React, { createContext, useContext, useState } from "react"
+import React, { createContext, useContext, useState, useEffect, useRef } from "react"
 import * as SecureStore from "expo-secure-store"
 import {jwtDecode} from "jwt-decode"
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+import { Platform } from "react-native";
+
+// Configure notifications handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export type UserRole = "student" | "media-manager" | "instructor" | null
 export interface AuthUser {
@@ -22,9 +37,87 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 type DecodedToken = { exp?: number }
 
+async function registerForPushNotificationsAsync() {
+  if (Platform.OS === 'android') {
+    Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.log('Failed to get push token for push notification!');
+      return;
+    }
+    const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+    if (!projectId) {
+        // console.log("Project ID not found");
+    }
+    try {
+        const pushTokenString = (
+            await Notifications.getExpoPushTokenAsync({
+                projectId,
+            })
+        ).data;
+        return pushTokenString;
+    } catch (e: any) {
+        console.error("Error fetching push token:", e);
+    }
+  } else {
+    console.log('Must use physical device for Push Notifications');
+  }
+  return
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
+
+  // Register for push notifications on login
+  useEffect(() => {
+    if (!user?.token) return;
+
+    registerForPushNotificationsAsync().then(token => {
+        if (token) {
+            console.log("Push Token:", token);
+            // Send to backend
+            const API_URL = "https://zion-backend-og8z.onrender.com";
+            fetch(`${API_URL}/api/users/push-token`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-auth-token': user.token
+                },
+                body: JSON.stringify({ token })
+            }).catch(err => console.error("Failed to save push token:", err));
+        }
+    });
+
+    // Listeners
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        console.log("Notification Received:", notification);
+    });
+
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log("Notification Tapped:", response);
+    });
+
+    return () => {
+        notificationListener.current && notificationListener.current.remove();
+        responseListener.current && responseListener.current.remove();
+    };
+  }, [user?.token]);
 
     React.useEffect(() => {
     ;(async () => {

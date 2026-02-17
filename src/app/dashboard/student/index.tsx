@@ -56,7 +56,7 @@ export default function StudentDashboard() {
             component={StudentMaterialsScreen}
             options={{
               tabBarIcon: ({ color }) => (
-                <Ionicons name="book-outline" size={24} color={color} />
+                <Ionicons name="home-outline" size={24} color={color} />
               ),
             }}
           />
