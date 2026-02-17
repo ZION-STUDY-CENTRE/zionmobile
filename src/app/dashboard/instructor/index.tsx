@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import { View, Text, ActivityIndicator, FlatList, StyleSheet, TouchableOpacity, Button, TextInput, Alert, Modal, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
 import { getInstructorPrograms, getProgramStudents, changePassword } from "../../../api/instructor";
@@ -912,12 +913,27 @@ export default function InstructorDashboard() {
   const initialTabName = ((params.tab || "").toLowerCase() === "assignments") ? "Assignments" : ((params.tab || "").toLowerCase() === "quizzes") ? "Quizzes" : ((params.tab || "").toLowerCase() === "chat") ? "Chat" : "Students";
 
   return (
-    <Tab.Navigator 
+    <Tab.Navigator
       key={initialTabName}
       tabBarPosition="bottom"
       initialRouteName={initialTabName}
+      screenOptions={{
+        tabBarShowIcon: true,
+        tabBarShowLabel: false,
+        tabBarIndicatorStyle: { backgroundColor: "#1e3a8a", top: 0 },
+        tabBarStyle: { borderTopWidth: 1, borderColor: "#e2e8f0" },
+        tabBarActiveTintColor: "#1e3a8a",
+        tabBarInactiveTintColor: "#64748b",
+      }}
     >
-      <Tab.Screen name="Students">
+      <Tab.Screen
+        name="Students"
+        options={{
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="home-outline" size={24} color={color} />
+          ),
+        }}
+      >
         {() => (
           <StudentsScreen
             user={user}
@@ -929,30 +945,45 @@ export default function InstructorDashboard() {
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="Assignments">
+      <Tab.Screen
+        name="Assignments"
+        options={{
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="document-text-outline" size={24} color={color} />
+          ),
+        }}
+      >
         {() => (
-            <AssignmentsScreen
-            user={user}
-            selectedProgram={selectedProgram}
-            />
+          <AssignmentsScreen user={user} selectedProgram={selectedProgram} />
         )}
-        </Tab.Screen>
-      <Tab.Screen 
-            name="Quizzes" 
-            children={() =>
-                <QuizzesScreen selectedProgram={selectedProgram} />
-            } 
-        />
-      <Tab.Screen 
-        name="Materials" 
-        children={() => 
-            <MaterialsScreen selectedProgram={selectedProgram} />
-        } 
+      </Tab.Screen>
+      <Tab.Screen
+        name="Quizzes"
+        children={() => <QuizzesScreen selectedProgram={selectedProgram} />}
+        options={{
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="pencil-outline" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Materials"
+        children={() => <MaterialsScreen selectedProgram={selectedProgram} />}
+        options={{
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="book-outline" size={24} color={color} />
+          ),
+        }}
       />
       <Tab.Screen
         name="Chat"
         children={() => <ChatRoomsScreen />}
-        />
+        options={{
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="chatbubbles-outline" size={24} color={color} />
+            ),
+          }}
+      />
     </Tab.Navigator>
   );
 }

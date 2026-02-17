@@ -1,7 +1,7 @@
 {
-    "name": "zionmobile2",
-    "slug": "zionmobile2",
-    "scheme": "zionmobile2",
+    "name": "Zion Mobile",
+    "slug": "zionMobile",
+    "scheme": "zionMobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -16,7 +16,7 @@
     ],
     "android": {
         "icon": "./assets/images/app-icon-android-legacy.png",
-        "package": "com.zionmobile2",
+        "package": "com.zionMobile",
         "adaptiveIcon": {
             "foregroundImage": "./assets/images/app-icon-android-legacy.png",
             "backgroundImage": "./assets/images/app-icon-android-adaptive-background.png"
@@ -27,7 +27,7 @@
     "ios": {
         "icon": "./assets/images/app-icon-ios.png",
         "supportsTablet": true,
-        "bundleIdentifier": "com.zionmobile2"
+        "bundleIdentifier": "com.zionMobile"
     },
     "web": {
         "favicon": "./assets/images/app-icon-web-favicon.png",

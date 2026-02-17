@@ -1,6 +1,7 @@
 import React from "react";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import { View, Text } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../../context/AuthContext";
 import NotificationBell from "../../../components/NotificationBell";
 import { useLocalSearchParams } from "expo-router";
@@ -38,12 +39,63 @@ export default function StudentDashboard() {
       </View>
 
       <View style={{ flex: 1 }}>
-        <Tab.Navigator tabBarPosition="bottom" initialRouteName={initialRouteName}>
-          <Tab.Screen name="Materials" component={StudentMaterialsScreen} />
-          <Tab.Screen name="Assignments" component={StudentAssignmentsScreen} />
-          <Tab.Screen name="Quizzes" component={StudentQuizzesScreen} />
-          <Tab.Screen name="Progress" component={StudentProgressScreen} />
-          <Tab.Screen name="Chat" component={StudentChatRoomsScreen} />
+        <Tab.Navigator
+          tabBarPosition="bottom"
+          initialRouteName={initialRouteName}
+          screenOptions={{
+            tabBarShowIcon: true,
+            tabBarShowLabel: false,
+            tabBarIndicatorStyle: { backgroundColor: "#2563eb", top: 0 },
+            tabBarStyle: { borderTopWidth: 1, borderColor: "#e2e8f0" },
+            tabBarActiveTintColor: "#2563eb",
+            tabBarInactiveTintColor: "#64748b",
+          }}
+        >
+          <Tab.Screen
+            name="Materials"
+            component={StudentMaterialsScreen}
+            options={{
+              tabBarIcon: ({ color }) => (
+                <Ionicons name="book-outline" size={24} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Assignments"
+            component={StudentAssignmentsScreen}
+            options={{
+              tabBarIcon: ({ color }) => (
+                <Ionicons name="document-text-outline" size={24} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Quizzes"
+            component={StudentQuizzesScreen}
+            options={{
+              tabBarIcon: ({ color }) => (
+                <Ionicons name="pencil-outline" size={24} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Progress"
+            component={StudentProgressScreen}
+            options={{
+              tabBarIcon: ({ color }) => (
+                <Ionicons name="stats-chart-outline" size={24} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Chat"
+            component={StudentChatRoomsScreen}
+            options={{
+              tabBarIcon: ({ color }) => (
+                <Ionicons name="chatbubbles-outline" size={24} color={color} />
+              ),
+            }}
+          />
         </Tab.Navigator>
       </View>
     </View>

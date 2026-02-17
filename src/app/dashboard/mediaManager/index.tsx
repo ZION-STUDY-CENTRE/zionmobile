@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -321,7 +322,6 @@ export default function MediaManagerScreen() {
           flexDirection: "row",
           borderTopWidth: 1,
           borderTopColor: "#e2e8f0",
-          paddingVertical: 8,
           backgroundColor: "#fff",
         }}
       >
@@ -329,20 +329,52 @@ export default function MediaManagerScreen() {
           <TouchableOpacity
             key={tab}
             onPress={() => onTabPress(tab)}
-            style={{ flex: 1, alignItems: "center", paddingVertical: 6 }}
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              paddingVertical: 12,
+              position: "relative",
+            }}
           >
-            <Text style={{ color: activeTab === tab ? "#2563eb" : "#64748b", fontWeight: "bold" }}>
-              {tab.toUpperCase()}
-            </Text>
+            {/* Top Indicator Line */}
             <View
               style={{
-                marginTop: 6,
+                position: "absolute",
+                top: 0,
                 height: 3,
-                width: 24,
-                borderRadius: 999,
+                width: "100%",
                 backgroundColor: activeTab === tab ? "#2563eb" : "transparent",
               }}
             />
+            {tab === "blog" && (
+              <Ionicons
+                name="newspaper-outline"
+                size={24}
+                color={activeTab === tab ? "#2563eb" : "#64748b"}
+              />
+            )}
+            {tab === "gallery" && (
+              <Ionicons
+                name="images-outline"
+                size={24}
+                color={activeTab === tab ? "#2563eb" : "#64748b"}
+              />
+            )}
+            {tab === "testimonials" && (
+              <Ionicons
+                name="star-outline"
+                size={24}
+                color={activeTab === tab ? "#2563eb" : "#64748b"}
+              />
+            )}
+            {tab === "chat" && (
+              <Ionicons
+                name="chatbubbles-outline"
+                size={24}
+                color={activeTab === tab ? "#2563eb" : "#64748b"}
+              />
+            )}
           </TouchableOpacity>
         ))}
       </View>

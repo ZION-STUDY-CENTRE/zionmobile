@@ -28,7 +28,7 @@ export default function EntryPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a", padding: 24, justifyContent: "space-between", marginTop: -70, marginBottom: -25 },
+  container: { flex: 1, backgroundColor: "#0f172a", padding: 24, justifyContent: "space-between", marginTop: -70, marginBottom: -25, paddingVertical: 50 },
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0, 0, 0, 0.5)" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   logo: { width: 96, height: 96, marginBottom: 16 },
