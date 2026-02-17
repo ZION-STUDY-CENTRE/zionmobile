@@ -38,8 +38,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 type DecodedToken = { exp?: number }
 
 async function registerForPushNotificationsAsync() {
+  let token;
+
   if (Platform.OS === 'android') {
-    Notifications.setNotificationChannelAsync('default', {
+    await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
@@ -55,27 +57,28 @@ async function registerForPushNotificationsAsync() {
       finalStatus = status;
     }
     if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
+      alert('Failed to get push token for push notification!');
       return;
     }
-    const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+    
+    const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId ?? "3e86712f-f968-499e-b69f-a2d45bb54e6c"; 
+    
     if (!projectId) {
-        // console.log("Project ID not found");
+      alert('Project ID not found');
     }
+
     try {
-        const pushTokenString = (
-            await Notifications.getExpoPushTokenAsync({
-                projectId,
-            })
-        ).data;
-        return pushTokenString;
+        const pushTokenData = await Notifications.getExpoPushTokenAsync({
+            projectId,
+        });
+        token = pushTokenData.data;
     } catch (e: any) {
         console.error("Error fetching push token:", e);
     }
   } else {
-    console.log('Must use physical device for Push Notifications');
+    // console.log('Must use physical device for Push Notifications');
   }
-  return
+  return token;
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
