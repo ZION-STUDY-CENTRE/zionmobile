@@ -68,3 +68,18 @@ export async function clearAllNotifications(token: string) {
   });
   return parseResponse(res);
 }
+
+export async function sendTestPush(
+  token: string,
+  payload?: { title?: string; body?: string; data?: Record<string, unknown> }
+) {
+  const res = await fetch(`${API_URL}/notifications/test/push`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseResponse(res);
+}

@@ -1,3 +1,7 @@
+// const API_URL = "https://zion-backend-og8z.onrender.com/api";
+// For local development on Android emulator or physical device. 
+// Use your computer's local IP address instead of localhost.
+// Run ipconfig on Windows to find your IPv4 address (e.g., 192.168.1.5)
 const API_URL = "https://zion-backend-og8z.onrender.com/api";
 
 const authHeaders = (token: string) => ({

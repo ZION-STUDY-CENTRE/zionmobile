@@ -6,6 +6,10 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from "react-native";
 
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ||
+  "https://zion-backend-og8z.onrender.com";
+
 // Configure notifications handler
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -96,16 +100,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     registerForPushNotificationsAsync().then(token => {
         if (token) {
             console.log("Push Token:", token);
-            // Send to backend
-            const API_URL = "https://zion-backend-og8z.onrender.com";
-            fetch(`${API_URL}/api/users/push-token`, {
+
+            fetch(`${API_BASE_URL}/api/users/push-token`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-auth-token': user.token
+                    Authorization: `Bearer ${user.token}`
                 },
                 body: JSON.stringify({ token })
-            }).catch(err => console.error("Failed to save push token:", err));
+            })
+              .then(async (res) => {
+                if (!res.ok) {
+                  const text = await res.text().catch(() => "");
+                  console.error("Failed to save push token:", res.status, text);
+                }
+              })
+              .catch(err => console.error("Failed to save push token:", err));
         }
     });
 

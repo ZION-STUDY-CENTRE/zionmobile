@@ -21,6 +21,7 @@
             "foregroundImage": "./assets/images/app-icon-android-legacy.png",
             "backgroundImage": "./assets/images/app-icon-android-adaptive-background.png"
         },
+        "googleServicesFile": "./google-services.json",
         "allowBackup": false,
         "edgeToEdgeEnabled": true
     },

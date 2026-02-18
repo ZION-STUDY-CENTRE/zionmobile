@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Alert,
   Modal,
   StyleSheet,
@@ -18,6 +19,7 @@ import {
   getUnreadCount,
   markAllAsRead,
   markAsRead,
+  sendTestPush,
 } from "../api/notifications";
 
 type Props = {
@@ -59,14 +61,18 @@ export default function NotificationBell({ token }: Props) {
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const unreadInFlight = useRef(false);
 
   const loadUnreadCount = useCallback(async () => {
-    if (!token) return;
+    if (!token || unreadInFlight.current) return;
+    unreadInFlight.current = true;
     try {
       const data = await getUnreadCount(token);
       setUnreadCount(data.unreadCount || 0);
     } catch {
       setUnreadCount(0);
+    } finally {
+      unreadInFlight.current = false;
     }
   }, [token]);
 
@@ -84,10 +90,25 @@ export default function NotificationBell({ token }: Props) {
   }, [token]);
 
   useEffect(() => {
+    if (!token) {
+      setUnreadCount(0);
+      return;
+    }
+
     loadUnreadCount();
-    const interval = setInterval(loadUnreadCount, 3000);
-    return () => clearInterval(interval);
-  }, [loadUnreadCount]);
+
+    const interval = setInterval(loadUnreadCount, 30000);
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        loadUnreadCount();
+      }
+    });
+
+    return () => {
+      clearInterval(interval);
+      appStateSubscription.remove();
+    };
+  }, [token, loadUnreadCount]);
 
   const recentNotifications = useMemo(() => notifications.slice(0, 3), [notifications]);
 
@@ -149,6 +170,20 @@ export default function NotificationBell({ token }: Props) {
     ]);
   };
 
+  const handleTestPush = async () => {
+    if (!token) return;
+    try {
+      const result = await sendTestPush(token, {
+        title: "Push Test",
+        body: "One-tap test from mobile app",
+        data: { source: "mobile-dev-button" },
+      });
+      Alert.alert("Push test sent", result?.message || "Request accepted");
+    } catch (e: any) {
+      Alert.alert("Push test failed", e?.message || "Unable to send test push");
+    }
+  };
+
   return (
     <>
       <TouchableOpacity style={styles.bellButton} onPress={openBell} activeOpacity={0.8}>
@@ -166,6 +201,11 @@ export default function NotificationBell({ token }: Props) {
             <View style={styles.headerRow}>
               <Text style={styles.title}>Notifications</Text>
               <View style={styles.headerActions}>
+                {__DEV__ ? (
+                  <TouchableOpacity style={styles.smallAction} onPress={handleTestPush}>
+                    <Text style={styles.smallActionText}>Test push</Text>
+                  </TouchableOpacity>
+                ) : null}
                 {unreadCount > 0 ? (
                   <TouchableOpacity style={styles.smallAction} onPress={handleMarkAllRead}>
                     <Text style={styles.smallActionText}>Mark all</Text>

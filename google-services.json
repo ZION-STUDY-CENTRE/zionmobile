@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "517765640788",
+    "project_id": "zion-mobile-d7805",
+    "storage_bucket": "zion-mobile-d7805.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:517765640788:android:0031ebc780ca03bd8ef3c1",
+        "android_client_info": {
+          "package_name": "com.zionmobile2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4cGFr41HEF1zhvZy366GFHzRAanxqo8c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
