@@ -20,7 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { formatDistanceToNow } from "date-fns";
 import {
   getConversations,
-  getInstructorStudents,
+  getChatUsers,
   getOrCreateConversation,
   createGroupConversation
 } from "../../../api/instructor";
@@ -149,10 +149,10 @@ export default function ChatRoomsScreen() {
     if (!user?.token) return;
     setStudentsLoading(true);
     try {
-      const data = await getInstructorStudents(user.token);
+      const data = await getChatUsers(user.token);
       setStudents(Array.isArray(data) ? data : []);
     } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to fetch students");
+      Alert.alert("Error", e.message || "Failed to fetch users");
     } finally {
       setStudentsLoading(false);
     }

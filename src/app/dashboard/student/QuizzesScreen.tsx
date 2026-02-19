@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from "react-native";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
 import { getStudentProgram, getQuizzes, getQuizSubmission } from "../../../api/student";
@@ -10,43 +10,77 @@ export default function StudentQuizzesScreen() {
   const [loading, setLoading] = useState(true);
   const [program, setProgram] = useState<any>(null);
   const [quizzes, setQuizzes] = useState<any[]>([]);
-  const [submissions, setSubmissions] = useState<{[key: string]: any}>({});
+  const [submissions, setSubmissions] = useState<{ [key: string]: any }>({});
   const [refreshing, setRefreshing] = useState(false);
 
-  // Use useFocusEffect so it refreshes when you come back from taking a quiz
-  useFocusEffect(
-    useCallback(() => {
-      if (user?.token) loadData();
-    }, [user?.token])
+  // Prevent constant refetch/remount-like behavior when switching tabs
+  const inFlightRef = useRef(false);
+  const hasLoadedRef = useRef(false);
+  const lastLoadedAtRef = useRef(0);
+  const STALE_MS = 60 * 1000;
+
+  const loadData = useCallback(
+    async (opts?: { force?: boolean }) => {
+      if (!user?.token) return;
+      if (inFlightRef.current) return;
+
+      const force = opts?.force ?? false;
+      const now = Date.now();
+      if (!force && hasLoadedRef.current && now - lastLoadedAtRef.current < STALE_MS) {
+        return;
+      }
+
+      inFlightRef.current = true;
+
+      // Only show full-screen spinner on first ever load
+      if (!hasLoadedRef.current && !refreshing) setLoading(true);
+
+      try {
+        const prog = await getStudentProgram(user.token);
+        setProgram(prog);
+
+        if (prog?._id) {
+          const data = await getQuizzes(prog._id, user.token);
+          const quizList = Array.isArray(data) ? data : [];
+          setQuizzes(quizList);
+
+          const subsMap: Record<string, any> = {};
+          for (const q of quizList) {
+            const sub = await getQuizSubmission(q._id, user.token);
+            if (sub) subsMap[q._id] = sub;
+          }
+          setSubmissions(subsMap);
+        } else {
+          setQuizzes([]);
+          setSubmissions({});
+        }
+
+        hasLoadedRef.current = true;
+        lastLoadedAtRef.current = Date.now();
+      } catch (e) {
+        console.log(e);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        inFlightRef.current = false;
+      }
+    },
+    [user?.token, refreshing]
   );
 
-  const loadData = async () => {
-    // Don't set loading true on refresh/focus to avoid flicker if already loaded
-    if (!quizzes.length) setLoading(true);
-    
-    try {
-      const prog = await getStudentProgram(user!.token);
-      setProgram(prog);
-      if (prog?._id) {
-        const data = await getQuizzes(prog._id, user!.token);
-        const quizList = Array.isArray(data) ? data : [];
-        setQuizzes(quizList);
-
-        // Check submissions for each quiz
-        const subsMap: any = {};
-        for (const q of quizList) {
-          const sub = await getQuizSubmission(q._id, user!.token);
-          if (sub) subsMap[q._id] = sub;
-        }
-        setSubmissions(subsMap);
-      }
-    } catch (e: any) {
-      console.log(e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  // Initial load once
+  useEffect(() => {
+    if (user?.token && !hasLoadedRef.current) {
+      loadData({ force: true });
     }
-  };
+  }, [user?.token, loadData]);
+
+  // On focus, only refresh if stale (prevents tab-switch reload feel)
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const isOverdue = (dateStr: string) => new Date() > new Date(dateStr);
 
@@ -55,11 +89,6 @@ export default function StudentQuizzesScreen() {
       pathname: "/dashboard/student/take-quiz",
       params: { quizId }
     });
-  };
-
-  const handleRecalculateProgress = () => {
-    // This is optional if you want to force updates elsewhere
-    loadData();
   };
 
   if (loading && !refreshing) return <ActivityIndicator style={{ marginTop: 24 }} />;
@@ -72,21 +101,31 @@ export default function StudentQuizzesScreen() {
       ) : (
         <FlatList
           data={quizzes}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                loadData({ force: true });
+              }}
+            />
+          }
           keyExtractor={(item) => item._id}
           ListEmptyComponent={<Text style={styles.subtitle}>No quizzes available yet.</Text>}
           renderItem={({ item }) => {
             const overdue = isOverdue(item.dueDate);
             const submission = submissions[item._id];
-            
+
             return (
               <View style={[styles.card, overdue && !submission ? styles.cardOverdue : {}]}>
                 <View style={styles.headerRow}>
                   <Text style={styles.cardTitle}>{item.title}</Text>
-                  <View style={[
-                    styles.badge, 
-                    submission ? styles.badgeSubmitted : (overdue ? styles.badgeOverdue : styles.badgeActive)
-                  ]}>
+                  <View
+                    style={[
+                      styles.badge,
+                      submission ? styles.badgeSubmitted : overdue ? styles.badgeOverdue : styles.badgeActive
+                    ]}
+                  >
                     <Text style={{ color: "#fff", fontSize: 10, fontWeight: "bold" }}>
                       {submission ? "Completed" : overdue ? "Closed" : "Active"}
                     </Text>
@@ -96,23 +135,30 @@ export default function StudentQuizzesScreen() {
                 <Text style={styles.description}>{item.description || "No description."}</Text>
 
                 <View style={styles.metaRow}>
-                   <Text style={styles.metaText}>📝 {item.questions?.length || 0} Qs</Text>
-                   <Text style={styles.metaText}>🎯 {item.totalMarks} Marks</Text>
+                  <Text style={styles.metaText}>📝 {item.questions?.length || 0} Qs</Text>
+                  <Text style={styles.metaText}>🎯 {item.totalMarks} Marks</Text>
                 </View>
 
                 {submission ? (
-                   <View style={styles.resultBox}>
-                      <Text style={styles.scoreText}>Your Score: {submission.score} / {submission.totalMarks}</Text>
-                      <Text style={styles.dateText}>Taken: {new Date( submission.completedAt || submission.submittedAt || submission.createdAt).toLocaleDateString()}</Text>
-                   </View>
+                  <View style={styles.resultBox}>
+                    <Text style={styles.scoreText}>
+                      Your Score: {submission.score} / {submission.totalMarks}
+                    </Text>
+                    <Text style={styles.dateText}>
+                      Taken:{" "}
+                      {new Date(
+                        submission.completedAt || submission.submittedAt || submission.createdAt
+                      ).toLocaleDateString()}
+                    </Text>
+                  </View>
                 ) : (
-                   <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.takeButton, overdue && { opacity: 0.5 }]}
                     disabled={overdue}
                     onPress={() => handleTakeQuiz(item._id)}
-                   >
+                  >
                     <Text style={styles.takeButtonText}>{overdue ? "Closed" : "Take Quiz"}</Text>
-                   </TouchableOpacity>
+                  </TouchableOpacity>
                 )}
               </View>
             );
