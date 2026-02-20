@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useProgram } from "../../context/ProgramContext";
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Linking, ScrollView 
 } from "react-native";
@@ -15,7 +16,8 @@ import {
 export default function StudentAssignmentsScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [program, setProgram] = useState<any>(null);
+  const [studentPrograms, setStudentPrograms] = useState<any[]>([]);
+  const { selectedProgram } = useProgram();
   const [assignments, setAssignments] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<{[key: string]: any}>({});
   
@@ -25,34 +27,28 @@ export default function StudentAssignmentsScreen() {
   const [submitting, setSubmitting] = useState<{[key: string]: boolean}>({});
 
   useEffect(() => {
-    if (!user?.token) return;
-    loadData();
-  }, [user?.token]);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const prog = await getStudentProgram(user!.token);
-      setProgram(prog);
-      
-      if (prog?._id) {
-        const assigns = await getAssignments(prog._id, user!.token);
+    if (!user?.token || !selectedProgram) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const assigns = await getAssignments(selectedProgram._id, user.token);
         setAssignments(Array.isArray(assigns) ? assigns : []);
-        
         // Check submissions for each assignment
         const subsMap: any = {};
         for (const assign of assigns) {
-          const sub = await getMyAssignmentSubmission(assign._id, user!.token);
+          const sub = await getMyAssignmentSubmission(assign._id, user.token);
           if (sub) subsMap[assign._id] = sub;
         }
         setSubmissions(subsMap);
+      } catch (e: any) {
+        Alert.alert("Error", e.message || "Failed to load assignments");
+      } finally {
+        setLoading(false);
       }
-    } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to load assignments");
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
+  }, [user?.token, selectedProgram]);
+
+  // Removed program switch handler (switching only on home page)
 
   const isOverdue = (dateStr: string) => {
     return new Date() > new Date(dateStr);
@@ -202,7 +198,7 @@ export default function StudentAssignmentsScreen() {
     <View style={styles.container}>
       <Text style={styles.pageTitle}>My Assignments</Text>
       <Text style={styles.sectionHeader2}>View and submit your tasks.</Text>
-      {!program ? (
+      {!selectedProgram ? (
         <Text style={styles.subtitle}>You are not enrolled in a program assignment.</Text>
       ) : (
         <FlatList

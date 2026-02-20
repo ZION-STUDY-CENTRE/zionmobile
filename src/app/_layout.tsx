@@ -6,6 +6,7 @@ import { useEffect } from "react"
 import * as Updates from "expo-updates";
 import { DevSettings } from "react-native";
 import GlobalPullToRefresh from "src/components/GlobalPullToRefresh"
+import { ProgramProvider } from "./context/ProgramContext"
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -55,14 +56,16 @@ export default function Root() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <GlobalPullToRefresh onRefresh={handleGlobalRefresh}>
-          <AuthGate>
-            <SafeAreaView style={{ flex: 1, paddingTop: 20, paddingBottom: -10, backgroundColor: "#1e3a8a" }}>
-              <Slot />
-            </SafeAreaView>
-          </AuthGate>
-        </GlobalPullToRefresh>
-        </AuthProvider>
+        <ProgramProvider>
+          <GlobalPullToRefresh onRefresh={handleGlobalRefresh}>
+            <AuthGate>
+              <SafeAreaView style={{ flex: 1, paddingTop: 20, paddingBottom: -10, backgroundColor: "#1e3a8a" }}>
+                <Slot />
+              </SafeAreaView>
+            </AuthGate>
+          </GlobalPullToRefresh>
+        </ProgramProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   )
 }

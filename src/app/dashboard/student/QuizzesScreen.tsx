@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
+import { useProgram } from "../../context/ProgramContext";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
 import { getStudentProgram, getQuizzes, getQuizSubmission } from "../../../api/student";
@@ -8,7 +9,8 @@ export default function StudentQuizzesScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [program, setProgram] = useState<any>(null);
+  const [studentPrograms, setStudentPrograms] = useState<any[]>([]);
+  const { selectedProgram } = useProgram();
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<{ [key: string]: any }>({});
   const [refreshing, setRefreshing] = useState(false);
@@ -21,7 +23,7 @@ export default function StudentQuizzesScreen() {
 
   const loadData = useCallback(
     async (opts?: { force?: boolean }) => {
-      if (!user?.token) return;
+      if (!user?.token || !selectedProgram) return;
       if (inFlightRef.current) return;
 
       const force = opts?.force ?? false;
@@ -32,29 +34,18 @@ export default function StudentQuizzesScreen() {
 
       inFlightRef.current = true;
 
-      // Only show full-screen spinner on first ever load
       if (!hasLoadedRef.current && !refreshing) setLoading(true);
 
       try {
-        const prog = await getStudentProgram(user.token);
-        setProgram(prog);
-
-        if (prog?._id) {
-          const data = await getQuizzes(prog._id, user.token);
-          const quizList = Array.isArray(data) ? data : [];
-          setQuizzes(quizList);
-
-          const subsMap: Record<string, any> = {};
-          for (const q of quizList) {
-            const sub = await getQuizSubmission(q._id, user.token);
-            if (sub) subsMap[q._id] = sub;
-          }
-          setSubmissions(subsMap);
-        } else {
-          setQuizzes([]);
-          setSubmissions({});
+        const data = await getQuizzes(selectedProgram._id, user.token);
+        const quizList = Array.isArray(data) ? data : [];
+        setQuizzes(quizList);
+        const subsMap: Record<string, any> = {};
+        for (const q of quizList) {
+          const sub = await getQuizSubmission(q._id, user.token);
+          if (sub) subsMap[q._id] = sub;
         }
-
+        setSubmissions(subsMap);
         hasLoadedRef.current = true;
         lastLoadedAtRef.current = Date.now();
       } catch (e) {
@@ -65,8 +56,10 @@ export default function StudentQuizzesScreen() {
         inFlightRef.current = false;
       }
     },
-    [user?.token, refreshing]
+    [user?.token, refreshing, selectedProgram]
   );
+
+  // Removed program switch handler (switching only on home page)
 
   // Initial load once
   useEffect(() => {
@@ -82,6 +75,14 @@ export default function StudentQuizzesScreen() {
     }, [loadData])
   );
 
+  // Reload quizzes when selectedProgram changes
+  useEffect(() => {
+    if (selectedProgram && user?.token) {
+      loadData({ force: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProgram]);
+
   const isOverdue = (dateStr: string) => new Date() > new Date(dateStr);
 
   const handleTakeQuiz = (quizId: string) => {
@@ -96,11 +97,17 @@ export default function StudentQuizzesScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.pageTitle}>Quizzes</Text>
-      {!program ? (
+      {/* Program Switcher removed (only on home page) */}
+      {!selectedProgram ? (
         <Text style={styles.subtitle}>You are not enrolled in a program yet.</Text>
       ) : (
         <FlatList
-          data={quizzes}
+          data={[...quizzes].sort((a, b) => {
+            // Prefer createdAt, fallback to dueDate if missing
+            const aDate = a.createdAt ? new Date(a.createdAt) : (a.dueDate ? new Date(a.dueDate) : new Date(0));
+            const bDate = b.createdAt ? new Date(b.createdAt) : (b.dueDate ? new Date(b.dueDate) : new Date(0));
+            return bDate.getTime() - aDate.getTime();
+          })}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -115,7 +122,6 @@ export default function StudentQuizzesScreen() {
           renderItem={({ item }) => {
             const overdue = isOverdue(item.dueDate);
             const submission = submissions[item._id];
-
             return (
               <View style={[styles.card, overdue && !submission ? styles.cardOverdue : {}]}>
                 <View style={styles.headerRow}>

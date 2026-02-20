@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { useProgram } from "../../context/ProgramContext";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from "react-native";
 import { useAuth } from "../../../context/AuthContext";
 import { 
   getStudentProgram, 
@@ -14,114 +15,81 @@ export default function StudentProgressScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
 
+  const [studentPrograms, setStudentPrograms] = useState<any[]>([]);
+  const { selectedProgram } = useProgram();
   const [assignments, setAssignments] = useState<any[]>([]);
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [files, setFiles] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<{[key: string]: any}>({});
   const [quizSubmissions, setQuizSubmissions] = useState<{[key: string]: any}>({});
-
   const [avgGrade, setAvgGrade] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
 
   useEffect(() => {
-    if (user?.token) loadData();
-  }, [user?.token]);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const prog = await getStudentProgram(user!.token);
-      if (!prog?._id) {
+    if (!user?.token || !selectedProgram) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const [assignsData, quizzesData, filesData] = await Promise.all([
+          getAssignments(selectedProgram._id, user.token),
+          getQuizzes(selectedProgram._id, user.token),
+          getFileResources(selectedProgram._id, user.token)
+        ]);
+        const validAssigns = Array.isArray(assignsData) ? assignsData : [];
+        const validQuizzes = Array.isArray(quizzesData) ? quizzesData : [];
+        const validFiles = Array.isArray(filesData) ? filesData : [];
+        setAssignments(validAssigns);
+        setQuizzes(validQuizzes);
+        setFiles(validFiles);
+        const subsMap: {[key: string]: any} = {};
+        const quizSubsMap: {[key: string]: any} = {};
+        let totalScore = 0;
+        let gradedCount = 0;
+        // Assignment submissions
+        await Promise.all(
+          validAssigns.map(async (a) => {
+            try {
+              const sub = await getMyAssignmentSubmission(a._id, user.token);
+              if (sub) {
+                subsMap[a._id] = sub;
+                if (sub.grade !== null && sub.grade !== undefined) {
+                  totalScore += sub.grade;
+                  gradedCount++;
+                }
+              }
+            } catch { /* ignore */ }
+          })
+        );
+        // Quiz submissions
+        await Promise.all(
+          validQuizzes.map(async (q) => {
+            try {
+              const sub = await getQuizSubmission(q._id, user.token);
+              if (sub) quizSubsMap[q._id] = sub;
+            } catch { /* ignore */ }
+          })
+        );
+        setSubmissions(subsMap);
+        setQuizSubmissions(quizSubsMap);
+        const completed = Object.keys(subsMap).length + Object.keys(quizSubsMap).length;
+        const total = validAssigns.length + validQuizzes.length;
+        setCompletedCount(completed);
+        setAvgGrade(gradedCount > 0 ? Math.round(totalScore / gradedCount) : 0);
+      } catch (e) {
+        console.log("Error loading progress:", e);
+      } finally {
         setLoading(false);
-        return;
       }
+    })();
+  }, [user?.token, selectedProgram]);
 
-      const [assignsData, quizzesData, filesData] = await Promise.all([
-        getAssignments(prog._id, user!.token),
-        getQuizzes(prog._id, user!.token),
-        getFileResources(prog._id, user!.token)
-      ]);
-
-      const validAssigns = Array.isArray(assignsData) ? assignsData : [];
-      const validQuizzes = Array.isArray(quizzesData) ? quizzesData : [];
-      const validFiles = Array.isArray(filesData) ? filesData : [];
-
-      setAssignments(validAssigns);
-      setQuizzes(validQuizzes);
-      setFiles(validFiles);
-
-      const subsMap: {[key: string]: any} = {};
-      const quizSubsMap: {[key: string]: any} = {};
-
-      let totalScore = 0;
-      let gradedCount = 0;
-
-      // Assignment submissions
-      await Promise.all(
-        validAssigns.map(async (a) => {
-          try {
-            const sub = await getMyAssignmentSubmission(a._id, user!.token);
-            if (sub) {
-              subsMap[a._id] = sub;
-              if (sub.grade !== null && sub.grade !== undefined) {
-                totalScore += sub.grade;
-                gradedCount++;
-              }
-            }
-          } catch { /* ignore */ }
-        })
-      );
-
-      // Quiz submissions
-      await Promise.all(
-        validQuizzes.map(async (q) => {
-          try {
-            const sub = await getQuizSubmission(q._id, user!.token);
-            if (sub) {
-              quizSubsMap[q._id] = sub;
-
-              // Include quiz score in average (as percentage)
-              const score = sub.score ?? sub.grade ?? 0;
-              const total = sub.totalMarks ?? q.totalMarks ?? 0;
-              if (total > 0) {
-                const percent = Math.round((score / total) * 100);
-                totalScore += percent;
-                gradedCount++;
-              }
-            }
-          } catch { /* ignore */ }
-        })
-      );
-
-      // Quiz submissions
-      await Promise.all(
-        validQuizzes.map(async (q) => {
-          try {
-            const sub = await getQuizSubmission(q._id, user!.token);
-            if (sub) quizSubsMap[q._id] = sub;
-          } catch { /* ignore */ }
-        })
-      );
-
-      setSubmissions(subsMap);
-      setQuizSubmissions(quizSubsMap);
-
-      const completed = Object.keys(subsMap).length + Object.keys(quizSubsMap).length;
-      const total = validAssigns.length + validQuizzes.length;
-
-      setCompletedCount(completed);
-      setAvgGrade(gradedCount > 0 ? Math.round(totalScore / gradedCount) : 0);
-    } catch (e) {
-      console.log("Error loading progress:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Removed program switch handler (switching only on home page)
 
   if (loading) return <ActivityIndicator style={{ marginTop: 24 }} />;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      {/* Program Switcher removed (only on home page) */}
       <Text style={styles.pageTitle}>Your Progress</Text>
 
       <View style={styles.topStatsRow}>
@@ -156,24 +124,28 @@ export default function StudentProgressScreen() {
 
       {/* --- 2. Summary Grid (Matching Web) --- */}
       <Text style={styles.sectionHeader}>Overview</Text>
-      <View style={styles.summaryGrid}>
+        <View style={styles.summaryGrid}>
         <View style={styles.summaryBox}>
-            <Text style={styles.summaryNumber}>{assignments.length}</Text>
-            <Text style={styles.summaryLabel}>Assignments</Text>
+          <Text style={styles.summaryNumber}>{assignments.length}</Text>
+          <Text style={styles.summaryLabel}>Assignments</Text>
         </View>
         <View style={styles.summaryBox}>
-            <Text style={styles.summaryNumber}>{Object.keys(submissions).length}</Text>
-            <Text style={styles.summaryLabel}>Assignments Submitted</Text>
+          <Text style={styles.summaryNumber}>{Object.keys(submissions).length}</Text>
+          <Text style={styles.summaryLabel}>Assignments Submitted</Text>
         </View>
         <View style={styles.summaryBox}>
-            <Text style={styles.summaryNumber}>{quizzes.length}</Text>
-            <Text style={styles.summaryLabel}>Quizzes</Text>
+          <Text style={styles.summaryNumber}>{quizzes.length}</Text>
+          <Text style={styles.summaryLabel}>Quizzes</Text>
         </View>
         <View style={styles.summaryBox}>
-            <Text style={styles.summaryNumber}>{files.length}</Text>
-            <Text style={styles.summaryLabel}>Resources</Text>
+          <Text style={styles.summaryNumber}>{Object.keys(quizSubmissions).length}</Text>
+          <Text style={styles.summaryLabel}>Quizzes Taken</Text>
         </View>
-      </View>
+        <View style={styles.summaryBox}>
+          <Text style={styles.summaryNumber}>{files.length}</Text>
+          <Text style={styles.summaryLabel}>Resources</Text>
+        </View>
+        </View>
 
       {/* --- 3. Assignment Grades List --- */}
       <Text style={styles.sectionHeader}>Assignment Grades</Text>
@@ -220,19 +192,29 @@ export default function StudentProgressScreen() {
       {quizzes.length === 0 ? (
         <Text style={styles.emptyText}>No quizzes yet.</Text>
       ) : (
-        quizzes.map((quiz) => (
-          <View key={quiz._id} style={styles.listItem}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemTitle}>{quiz.title}</Text>
-              <Text style={styles.itemSubtitle}>
+        quizzes.map((quiz) => {
+          const sub = quizSubmissions[quiz._id];
+          return (
+            <View key={quiz._id} style={styles.listItem}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemTitle}>{quiz.title}</Text>
+                <Text style={styles.itemSubtitle}>
                   {quiz.questions?.length || 0} Questions
-              </Text>
+                </Text>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                {sub ? (
+                  <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+                    <Text style={styles.gradeText}>{sub.score}</Text>
+                    <Text style={styles.gradeTotal}>/{sub.totalMarks}</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.notSubmittedText}>Not Taken</Text>
+                )}
+              </View>
             </View>
-            <View>
-              <Text style={styles.quizMarksText}>Total Marks: {quiz.totalMarks}</Text>
-            </View>
-          </View>
-        ))
+          );
+        })
       )}
 
       <Text style={styles.footerNote}>

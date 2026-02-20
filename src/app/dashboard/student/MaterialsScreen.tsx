@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { ProgramProvider, useProgram } from "../../context/ProgramContext";
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Linking, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
@@ -8,7 +9,8 @@ export default function StudentMaterialsScreen() {
   const router = useRouter(); 
   const { user, logout } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [program, setProgram] = useState<any>(null);
+  const [studentPrograms, setStudentPrograms] = useState<any[]>([]);
+  const { selectedProgram, setSelectedProgram } = useProgram();
   const [files, setFiles] = useState<any[]>([]);
 
   useEffect(() => {
@@ -16,13 +18,20 @@ export default function StudentMaterialsScreen() {
     (async () => {
       setLoading(true);
       try {
-        const prog = await getStudentProgram(user.token);
-        setProgram(prog);
-        if (prog?._id) {
-          const data = await getFileResources(prog._id, user.token);
-          setFiles(Array.isArray(data) ? data : []);
-        } else {
-          setFiles([]);
+        const progData = await getStudentProgram(user.token);
+        let programsArr = [];
+        if (Array.isArray(progData) && progData.length > 0) {
+          programsArr = progData;
+        } else if (progData && progData.program) {
+          programsArr = [progData];
+        } else if (progData?._id) {
+          programsArr = [progData];
+        }
+        setStudentPrograms(programsArr);
+        // Only set initial program if not already set
+        if (!selectedProgram && programsArr[0]) {
+          const initialProgram = programsArr[0].program || programsArr[0];
+          setSelectedProgram(initialProgram);
         }
       } catch (e: any) {
         Alert.alert("Error", e.message || "Failed to load materials");
@@ -31,6 +40,25 @@ export default function StudentMaterialsScreen() {
       }
     })();
   }, [user?.token]);
+
+  // Fetch materials whenever selectedProgram changes
+  useEffect(() => {
+    if (!user?.token || !selectedProgram?._id) {
+      setFiles([]);
+      return;
+    }
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await getFileResources(selectedProgram._id, user.token);
+        setFiles(Array.isArray(data) ? data : []);
+      } catch (e: any) {
+        Alert.alert("Error", e.message || "Failed to load materials");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [selectedProgram, user?.token]);
 
   const handleOpenFile = async (file: any) => {
     try {
@@ -71,63 +99,87 @@ export default function StudentMaterialsScreen() {
         </TouchableOpacity>
       </View>
 
-      
-        <Text style={styles.sectionHeader}>Student Portal</Text>
-        <Text style={styles.sectionHeader2}>Welcome back, {user?.name || "Student"}</Text>
+      {/* Program Switcher */}
+      {studentPrograms.length > 1 && (
+        <View  style={{ marginBottom: 16, borderColor: "#e2e8f0", borderWidth: 1, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16, display: 'flex', flexDirection: 'column', gap: 8, width: '80%' }} >
+          {studentPrograms.map((sp, idx) => {
+            const prog = sp.program || sp;
+            return (
+              <TouchableOpacity
+                key={prog._id}
+                style={{
+                  backgroundColor: selectedProgram?._id === prog._id ? '#2563eb' : '#fff',
+                  borderColor: '#2563eb',
+                  borderWidth: 1,
+                  borderRadius: 8,
+                  paddingVertical: 8,
+                  paddingHorizontal: 16,
+                  marginRight: 8,
+                }}
+                onPress={async () => {
+                  setSelectedProgram(prog);
+                  setLoading(true);
+                  try {
+                    const data = await getFileResources(prog._id, user ? user.token : '');
+                    setFiles(Array.isArray(data) ? data : []);
+                  } catch (e: any) {
+                    Alert.alert("Error", e.message || "Failed to load materials");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                <Text style={{ color: selectedProgram?._id === prog._id ? '#fff' : '#2563eb', fontWeight: 'bold' }}>{prog.title}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
-      {!program ? (
+      {!selectedProgram ? (
         <View style={styles.centerContent}>
-           <Text style={styles.subtitle}>You are not enrolled in a program yet.</Text>
+          <Text style={styles.subtitle}>You are not enrolled in a program yet.</Text>
         </View>
       ) : (
-        <FlatList
-          data={files}
-          keyExtractor={(item) => item._id}
-          ListHeaderComponent={() => (
-            <View>
-                <View style={styles.programCard}>
-              <View style={styles.programHeaderRow}>
-                <Text style={styles.programTitle}>{program.title}</Text>
-                <View style={styles.activeBadge}>
-                  <Text style={styles.activeBadgeText}>Active</Text>
-                </View>
-              </View>
-              
-              <Text style={styles.programDesc}>
-                {program.description || "No description available."}
-              </Text>
-
-              <View style={styles.programFooter}>
-                <View style={styles.programMetaRow}>
-                  <Text style={styles.metaLabel}>👤 Instructors: </Text>
-                  <Text style={styles.metaValue}>
-                    {program.instructors && program.instructors.length > 0
-                      ? program.instructors.map((i: any) => i.name).join(", ")
-                      : "TBA"}
-                  </Text>
-                </View>
-                <View style={[styles.programMetaRow, { marginTop: 4 }]}>
-                  <Text style={styles.metaLabel}>📅 Enrolled: </Text>
-                  <Text style={styles.metaValue}>Active</Text>
-                </View>
+        <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+          <View style={styles.programCard}>
+            <View style={styles.programHeaderRow}>
+              <Text style={styles.programTitle}>{selectedProgram.title}</Text>
+              <View style={styles.activeBadge}>
+                <Text style={styles.activeBadgeText}>Active</Text>
               </View>
             </View>
-            <Text style={styles.studyMaterials}>Study Materials</Text>
-
+            <Text style={styles.programDesc}>{selectedProgram.description || "No description available."}</Text>
+            <View style={styles.programFooter}>
+              <View style={styles.programMetaRow}>
+                <Text style={styles.metaLabel}>👤 Instructors: </Text>
+                <Text style={styles.metaValue}>
+                  {selectedProgram.instructors && selectedProgram.instructors.length > 0
+                    ? selectedProgram.instructors.map((i: any) => i.name).join(", ")
+                    : "TBA"}
+                </Text>
+              </View>
+              <View style={[styles.programMetaRow, { marginTop: 4 }]}>
+                <Text style={styles.metaLabel}>📅 Enrolled: </Text>
+                <Text style={styles.metaValue}>Active</Text>
+              </View>
             </View>
-          )}
-          
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.fileCard} onPress={() => handleOpenFile(item)}>
-              <Text style={styles.fileTitle}>{item.title || item.fileName || "File"}</Text>
-              <Text style={styles.fileDesc}>{item.description || "Tap to download/view"}</Text>
-              <Text style={styles.downloadLink}>Download</Text>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
+          </View>
+          <Text style={styles.studyMaterials}>Study Materials</Text>
+          {files && files.length > 0 ? (
+            [...files]
+              .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+              .map((item) => (
+                <TouchableOpacity key={item._id} style={styles.fileCard} onPress={() => handleOpenFile(item)}>
+                  <Text style={styles.fileTitle}>{item.title || item.fileName || "File"}</Text>
+                  <Text style={styles.fileDesc}>{item.description || "Tap to download/view"}</Text>
+                  <Text style={styles.downloadLink}>Download</Text>
+                </TouchableOpacity>
+              ))
+          ) : (
             <Text style={styles.emptyText}>No materials uploaded yet.</Text>
-          }
-        />
+          )}
+        </ScrollView>
       )}
     </View>
   );
